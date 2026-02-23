@@ -23,7 +23,6 @@ async function upsertVercelEnvVar(
     "Content-Type": "application/json",
   };
 
-  // Try to create first; if conflict (409), update by key
   const createRes = await fetch(`${baseUrl}${queryParams}`, {
     method: "POST",
     headers,
@@ -35,31 +34,40 @@ async function upsertVercelEnvVar(
     }),
   });
 
-  if (createRes.status === 409) {
-    // Variable already exists — fetch its id and patch
-    const listRes = await fetch(`${baseUrl}${queryParams}`, { headers });
-    if (!listRes.ok) {
-      const body = await listRes.text();
-      throw new Error(`Failed to list env vars (${listRes.status}): ${body}`);
-    }
-    const listData = await listRes.json();
-    const existing = listData.envs?.find((e: { key: string }) => e.key === key);
-    if (!existing) {
-      throw new Error(`Env var ${key} not found after 409 conflict`);
-    }
+  if (createRes.ok) return; // Created successfully
 
-    const patchRes = await fetch(`${baseUrl}/${existing.id}${queryParams}`, {
-      method: "PATCH",
-      headers,
-      body: JSON.stringify({ value, type: "encrypted" }),
-    });
-    if (!patchRes.ok) {
-      const body = await patchRes.text();
-      throw new Error(`Failed to update ${key} (${patchRes.status}): ${body}`);
-    }
-  } else if (!createRes.ok) {
-    const body = await createRes.text();
-    throw new Error(`Failed to create ${key} (${createRes.status}): ${body}`);
+  // Vercel returns 409 OR 400 with ENV_CONFLICT when the variable already exists
+  const createBody = await createRes.json().catch(() => ({}));
+  const isConflict =
+    createRes.status === 409 ||
+    (createRes.status === 400 && createBody?.error?.code === "ENV_CONFLICT");
+
+  if (!isConflict) {
+    throw new Error(
+      `Failed to create ${key} (${createRes.status}): ${JSON.stringify(createBody)}`
+    );
+  }
+
+  // Variable already exists — list to get its id, then PATCH
+  const listRes = await fetch(`${baseUrl}${queryParams}`, { headers });
+  if (!listRes.ok) {
+    const body = await listRes.text();
+    throw new Error(`Failed to list env vars (${listRes.status}): ${body}`);
+  }
+  const listData = await listRes.json();
+  const existing = listData.envs?.find((e: { key: string }) => e.key === key);
+  if (!existing) {
+    throw new Error(`Env var ${key} not found after conflict response`);
+  }
+
+  const patchRes = await fetch(`${baseUrl}/${existing.id}${queryParams}`, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify({ value, type: "encrypted" }),
+  });
+  if (!patchRes.ok) {
+    const body = await patchRes.text();
+    throw new Error(`Failed to update ${key} (${patchRes.status}): ${body}`);
   }
 }
 
