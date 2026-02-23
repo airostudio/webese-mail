@@ -39,29 +39,27 @@ async function upsertVercelEnvVar(
     // Variable already exists — fetch its id and patch
     const listRes = await fetch(`${baseUrl}${queryParams}`, { headers });
     if (!listRes.ok) {
-      throw new Error(`Failed to list env vars: ${listRes.statusText}`);
+      const body = await listRes.text();
+      throw new Error(`Failed to list env vars (${listRes.status}): ${body}`);
     }
     const listData = await listRes.json();
     const existing = listData.envs?.find((e: { key: string }) => e.key === key);
     if (!existing) {
-      throw new Error(`Env var ${key} not found after conflict`);
+      throw new Error(`Env var ${key} not found after 409 conflict`);
     }
 
-    const patchRes = await fetch(
-      `${baseUrl}/${existing.id}${queryParams}`,
-      {
-        method: "PATCH",
-        headers,
-        body: JSON.stringify({ value, type: "encrypted" }),
-      }
-    );
+    const patchRes = await fetch(`${baseUrl}/${existing.id}${queryParams}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ value, type: "encrypted" }),
+    });
     if (!patchRes.ok) {
-      const err = await patchRes.text();
-      throw new Error(`Failed to update env var ${key}: ${err}`);
+      const body = await patchRes.text();
+      throw new Error(`Failed to update ${key} (${patchRes.status}): ${body}`);
     }
   } else if (!createRes.ok) {
-    const err = await createRes.text();
-    throw new Error(`Failed to create env var ${key}: ${err}`);
+    const body = await createRes.text();
+    throw new Error(`Failed to create ${key} (${createRes.status}): ${body}`);
   }
 }
 
@@ -115,8 +113,8 @@ async function triggerRedeployment(
   );
 
   if (!redeployRes.ok) {
-    const err = await redeployRes.text();
-    throw new Error(`Failed to trigger redeployment: ${err}`);
+    const body = await redeployRes.text();
+    throw new Error(`Failed to trigger redeployment (${redeployRes.status}): ${body}`);
   }
 
   return redeployRes.json();
@@ -198,11 +196,12 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error updating email settings:", error);
+    const detail = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
       {
         success: false,
-        message: "An unexpected error occurred. Please try again.",
-        details: String(error),
+        message: "Failed to save settings — see details below.",
+        details: detail,
       },
       { status: 500 }
     );

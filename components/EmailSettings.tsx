@@ -40,12 +40,14 @@ export default function EmailSettings() {
   const [status, setStatus] = useState<{
     type: "idle" | "loading" | "success" | "error";
     message: string;
+    details?: string;
   }>({ type: "idle", message: "" });
 
   const [testEmail, setTestEmail] = useState("");
   const [testStatus, setTestStatus] = useState<{
     type: "idle" | "loading" | "success" | "error";
     message: string;
+    details?: string;
   }>({ type: "idle", message: "" });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,6 +76,7 @@ export default function EmailSettings() {
         setStatus({
           type: "error",
           message: data.message || "Failed to save settings.",
+          details: data.details,
         });
       }
     } catch {
@@ -280,6 +283,11 @@ export default function EmailSettings() {
             {status.type !== "idle" && (
               <div className={`rounded-lg p-3 text-sm font-medium ${statusColors[status.type]}`}>
                 {status.message}
+                {status.details && (
+                  <pre className="mt-2 text-xs font-mono opacity-75 whitespace-pre-wrap break-all">
+                    {status.details}
+                  </pre>
+                )}
               </div>
             )}
 
@@ -321,6 +329,11 @@ export default function EmailSettings() {
                 className={`mt-3 rounded-lg p-3 text-sm font-medium ${statusColors[testStatus.type]}`}
               >
                 {testStatus.message}
+                {testStatus.details && (
+                  <pre className="mt-2 text-xs font-mono opacity-75 whitespace-pre-wrap break-all">
+                    {testStatus.details}
+                  </pre>
+                )}
               </div>
             )}
           </div>
