@@ -93,10 +93,20 @@ export default function EmailSettings() {
     setTestStatus({ type: "loading", message: "Sending test email…" });
 
     try {
+      // Pass current form values so the test works immediately without
+      // waiting for Vercel to redeploy with the new environment variables.
       const response = await fetch("/api/send-test-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: testEmail }),
+        body: JSON.stringify({
+          to: testEmail,
+          smtpHost: formData.smtpHost,
+          smtpPort: formData.smtpPort,
+          smtpUser: formData.smtpUser,
+          smtpPassword: formData.smtpPassword,
+          fromEmail: formData.fromEmail,
+          fromName: formData.fromName,
+        }),
       });
 
       const data: ApiResponse = await response.json();
