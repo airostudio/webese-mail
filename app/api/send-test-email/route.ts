@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import nodemailer from "nodemailer";
+import { sendEmailWithSettings } from "@/lib/email";
+import { getSmtpSettings, type SmtpSettings } from "@/lib/email-settings";
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,44 +14,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Prefer inline credentials from the request body (allows testing before
-    // Vercel redeployment completes). Fall back to environment variables.
-    const host = smtpHost || process.env.SMTP_HOST;
-    const port = parseInt(smtpPort || process.env.SMTP_PORT || "587", 10);
-    const user = smtpUser || process.env.SMTP_USER;
-    const pass = smtpPassword || process.env.SMTP_PASSWORD;
-    const from = fromEmail || process.env.EMAIL_FROM || user;
-    const displayName = fromName || process.env.EMAIL_FROM_NAME || from;
+    // Use inline credentials from the form if provided (allows testing before
+    // saving). Fall back to stored KV settings if not.
+    let settings: SmtpSettings | null = null;
 
-    if (!host || !user || !pass || !from) {
-      const missing = [
-        !host && "SMTP Host",
-        !user && "SMTP Username",
-        !pass && "SMTP Password",
-        !from && "From Email",
-      ].filter(Boolean);
+    if (smtpHost && smtpUser && smtpPassword && fromEmail) {
+      settings = { smtpHost, smtpPort: smtpPort || "587", smtpUser, smtpPassword, fromEmail, fromName: fromName || fromEmail };
+    } else {
+      settings = await getSmtpSettings();
+    }
 
+    if (!settings?.smtpHost || !settings?.smtpUser || !settings?.smtpPassword) {
       return NextResponse.json(
         {
           success: false,
-          message: `Cannot send test email — missing: ${missing.join(", ")}. Fill in the settings form above first.`,
+          message: "Cannot send test email — fill in all SMTP fields above first.",
         },
         { status: 400 }
       );
     }
 
-    const transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465,
-      auth: { user, pass },
-      tls: { rejectUnauthorized: false },
-    });
-
-    await transporter.sendMail({
-      from: displayName ? `"${displayName}" <${from}>` : from,
+    await sendEmailWithSettings(settings, {
       to,
-      subject: "Test Email from Email Settings Manager",
+      subject: "Test Email — Email Settings Manager",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #f0f9ff; border-radius: 8px;">
           <h1 style="color: #0f172a; margin-bottom: 16px;">Test Email</h1>
@@ -62,9 +48,9 @@ export async function POST(request: NextRequest) {
           </p>
           <div style="margin-top: 24px; padding: 16px; background: #e0f2fe; border-radius: 6px;">
             <p style="color: #0369a1; font-size: 14px; margin: 0;">
-              SMTP Host: <code>${host}</code><br />
-              SMTP Port: <code>${port}</code><br />
-              From: <code>${from}</code>
+              SMTP Host: <code>${settings.smtpHost}</code><br />
+              SMTP Port: <code>${settings.smtpPort || "587"}</code><br />
+              From: <code>${settings.fromEmail}</code>
             </p>
           </div>
         </div>
@@ -80,7 +66,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message: `Failed to send test email: ${String(error)}`,
+        message: `Failed to send test email: ${error instanceof Error ? error.message : String(error)}`,
       },
       { status: 500 }
     );

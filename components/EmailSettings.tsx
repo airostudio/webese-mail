@@ -149,9 +149,9 @@ export default function EmailSettings() {
     <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
       {/* Header */}
       <div className="bg-gradient-to-r from-sky-500 to-indigo-500 px-6 py-5">
-        <h2 className="text-lg font-semibold text-white">Email Settings Manager</h2>
+        <h2 className="text-lg font-semibold text-white">Email Settings</h2>
         <p className="text-sky-100 text-sm mt-0.5">
-          Configure SMTP credentials and sync them to your Vercel apps
+          Configure your outgoing mail server — changes take effect immediately
         </p>
       </div>
 
@@ -276,6 +276,16 @@ export default function EmailSettings() {
                   Quick Guide
                 </button>{" "}
                 for provider-specific settings.
+              </span>
+            </div>
+
+            {/* Instant save notice */}
+            <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 text-xs text-slate-500 flex gap-2">
+              <span className="text-indigo-400 mt-0.5">ⓘ</span>
+              <span>
+                Settings are stored securely and take effect{" "}
+                <span className="font-medium text-slate-600">immediately</span> — no
+                redeployment needed.
               </span>
             </div>
 

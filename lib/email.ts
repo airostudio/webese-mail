@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { getSmtpSettings, type SmtpSettings } from "./email-settings";
 
 export interface SendEmailOptions {
   to: string | string[];
@@ -8,67 +9,69 @@ export interface SendEmailOptions {
   replyTo?: string;
 }
 
-/**
- * Creates a nodemailer transporter using SMTP environment variables.
- *
- * Required env vars:
- *   SMTP_HOST     — e.g. mail.saturnia.io
- *   SMTP_USER     — full email address used for auth
- *   SMTP_PASSWORD — email account password
- *
- * Optional env vars:
- *   SMTP_PORT     — defaults to 587
- *   EMAIL_FROM    — sender address, defaults to SMTP_USER
- *   EMAIL_FROM_NAME — display name, defaults to EMAIL_FROM
- */
-function createTransporter() {
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASSWORD;
-  const port = parseInt(process.env.SMTP_PORT || "587", 10);
-
-  if (!host || !user || !pass) {
-    throw new Error(
-      "SMTP configuration is incomplete. Ensure SMTP_HOST, SMTP_USER, and SMTP_PASSWORD are set."
-    );
-  }
-
+function buildTransporter(settings: SmtpSettings) {
+  const port = parseInt(settings.smtpPort || "587", 10);
   return nodemailer.createTransport({
-    host,
+    host: settings.smtpHost,
     port,
-    secure: port === 465, // true for SSL (465), false for TLS (587)
-    auth: { user, pass },
-    tls: {
-      // Allow self-signed certs (common on shared hosting / Plesk)
-      rejectUnauthorized: false,
-    },
+    secure: port === 465,
+    auth: { user: settings.smtpUser, pass: settings.smtpPassword },
+    tls: { rejectUnauthorized: false },
   });
 }
 
 /**
- * Sends an email using the configured SMTP server.
+ * Sends an email using SMTP settings stored in Vercel KV.
+ * Settings are configured via the admin Email Settings page.
  *
  * @example
  * await sendEmail({
  *   to: 'user@example.com',
- *   subject: 'Hello!',
- *   html: '<h1>Hello World</h1>',
+ *   subject: 'Welcome!',
+ *   html: '<h1>Hello</h1>',
  * });
  */
 export async function sendEmail(options: SendEmailOptions) {
-  const transporter = createTransporter();
+  const settings = await getSmtpSettings();
 
-  const fromEmail = process.env.EMAIL_FROM || process.env.SMTP_USER || "";
-  const fromName = process.env.EMAIL_FROM_NAME || fromEmail;
+  if (!settings?.smtpHost || !settings?.smtpUser || !settings?.smtpPassword) {
+    throw new Error(
+      "Email not configured. Please set up SMTP in the admin Email Settings page."
+    );
+  }
 
-  const info = await transporter.sendMail({
-    from: fromName ? `"${fromName}" <${fromEmail}>` : fromEmail,
+  const transporter = buildTransporter(settings);
+  const from = settings.fromEmail || settings.smtpUser;
+  const displayName = settings.fromName || from;
+
+  return transporter.sendMail({
+    from: displayName ? `"${displayName}" <${from}>` : from,
     to: Array.isArray(options.to) ? options.to.join(", ") : options.to,
     subject: options.subject,
     html: options.html,
     text: options.text,
     replyTo: options.replyTo,
   });
+}
 
-  return info;
+/**
+ * Sends an email using explicit inline credentials.
+ * Used internally for testing settings before they are saved.
+ */
+export async function sendEmailWithSettings(
+  settings: SmtpSettings,
+  options: SendEmailOptions
+) {
+  const transporter = buildTransporter(settings);
+  const from = settings.fromEmail || settings.smtpUser;
+  const displayName = settings.fromName || from;
+
+  return transporter.sendMail({
+    from: displayName ? `"${displayName}" <${from}>` : from,
+    to: Array.isArray(options.to) ? options.to.join(", ") : options.to,
+    subject: options.subject,
+    html: options.html,
+    text: options.text,
+    replyTo: options.replyTo,
+  });
 }
