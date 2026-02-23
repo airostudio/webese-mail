@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import QuickGuide from "./QuickGuide";
+
+type Tab = "settings" | "guide";
 
 interface EmailFormData {
   smtpHost: string;
@@ -17,7 +20,14 @@ interface ApiResponse {
   details?: string;
 }
 
+const tabs: { id: Tab; label: string }[] = [
+  { id: "settings", label: "SMTP Settings" },
+  { id: "guide", label: "Quick Guide" },
+];
+
 export default function EmailSettings() {
+  const [activeTab, setActiveTab] = useState<Tab>("settings");
+
   const [formData, setFormData] = useState<EmailFormData>({
     smtpHost: "",
     smtpPort: "587",
@@ -39,15 +49,12 @@ export default function EmailSettings() {
   }>({ type: "idle", message: "" });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStatus({ type: "loading", message: "Saving settings..." });
+    setStatus({ type: "loading", message: "Saving settings…" });
 
     try {
       const response = await fetch("/api/update-email-settings", {
@@ -70,20 +77,20 @@ export default function EmailSettings() {
         });
       }
     } catch {
-      setStatus({
-        type: "error",
-        message: "Network error. Please try again.",
-      });
+      setStatus({ type: "error", message: "Network error. Please try again." });
     }
   };
 
   const handleTestEmail = async () => {
     if (!testEmail) {
-      setTestStatus({ type: "error", message: "Please enter a test email address." });
+      setTestStatus({
+        type: "error",
+        message: "Please enter a test email address.",
+      });
       return;
     }
 
-    setTestStatus({ type: "loading", message: "Sending test email..." });
+    setTestStatus({ type: "loading", message: "Sending test email…" });
 
     try {
       const response = await fetch("/api/send-test-email", {
@@ -114,173 +121,201 @@ export default function EmailSettings() {
   };
 
   const inputClass =
-    "w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition";
+    "w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:border-sky-400 transition text-sm";
 
-  const labelClass = "block text-sm font-medium text-slate-300 mb-1";
+  const labelClass = "block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5";
+
+  const statusColors = {
+    success: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+    error: "bg-red-50 text-red-600 border border-red-200",
+    loading: "bg-sky-50 text-sky-600 border border-sky-200",
+    idle: "",
+  };
 
   return (
-    <div className="bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4">
-        <h2 className="text-xl font-semibold text-white">SMTP Configuration</h2>
-        <p className="text-blue-200 text-sm mt-1">
-          Configure your email server settings below
+      <div className="bg-gradient-to-r from-sky-500 to-indigo-500 px-6 py-5">
+        <h2 className="text-lg font-semibold text-white">Email Settings Manager</h2>
+        <p className="text-sky-100 text-sm mt-0.5">
+          Configure SMTP credentials and sync them to your Vercel apps
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-6 space-y-5">
-        {/* SMTP Host & Port */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="col-span-2">
-            <label className={labelClass}>SMTP Host</label>
-            <input
-              type="text"
-              name="smtpHost"
-              value={formData.smtpHost}
-              onChange={handleChange}
-              placeholder="mail.saturnia.io"
-              className={inputClass}
-              required
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Port</label>
-            <input
-              type="number"
-              name="smtpPort"
-              value={formData.smtpPort}
-              onChange={handleChange}
-              placeholder="587"
-              className={inputClass}
-              required
-            />
-          </div>
-        </div>
-
-        {/* SMTP User */}
-        <div>
-          <label className={labelClass}>SMTP Username</label>
-          <input
-            type="email"
-            name="smtpUser"
-            value={formData.smtpUser}
-            onChange={handleChange}
-            placeholder="your-email@saturnia.io"
-            className={inputClass}
-            required
-          />
-        </div>
-
-        {/* SMTP Password */}
-        <div>
-          <label className={labelClass}>SMTP Password</label>
-          <input
-            type="password"
-            name="smtpPassword"
-            value={formData.smtpPassword}
-            onChange={handleChange}
-            placeholder="Your email password"
-            className={inputClass}
-            required
-          />
-        </div>
-
-        {/* From Email & Name */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className={labelClass}>From Email</label>
-            <input
-              type="email"
-              name="fromEmail"
-              value={formData.fromEmail}
-              onChange={handleChange}
-              placeholder="noreply@saturnia.io"
-              className={inputClass}
-              required
-            />
-          </div>
-          <div>
-            <label className={labelClass}>From Name</label>
-            <input
-              type="text"
-              name="fromName"
-              value={formData.fromName}
-              onChange={handleChange}
-              placeholder="My App"
-              className={inputClass}
-            />
-          </div>
-        </div>
-
-        {/* Port hint */}
-        <div className="bg-slate-700/50 rounded-lg p-3 text-sm text-slate-400">
-          <span className="font-medium text-slate-300">Port guide:</span>{" "}
-          Use <code className="text-blue-400">587</code> for TLS (recommended) or{" "}
-          <code className="text-blue-400">465</code> for SSL
-        </div>
-
-        {/* Status message */}
-        {status.type !== "idle" && (
-          <div
-            className={`rounded-lg p-3 text-sm font-medium ${
-              status.type === "success"
-                ? "bg-green-900/50 text-green-300 border border-green-700"
-                : status.type === "error"
-                ? "bg-red-900/50 text-red-300 border border-red-700"
-                : "bg-blue-900/50 text-blue-300 border border-blue-700"
-            }`}
-          >
-            {status.message}
-          </div>
-        )}
-
-        {/* Submit */}
-        <button
-          type="submit"
-          disabled={status.type === "loading"}
-          className="w-full py-3 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
-        >
-          {status.type === "loading" ? "Saving..." : "Save Email Settings"}
-        </button>
-      </form>
-
-      {/* Test Email Section */}
-      <div className="border-t border-slate-700 px-6 py-5">
-        <h3 className="text-base font-semibold text-slate-200 mb-3">
-          Send Test Email
-        </h3>
-        <div className="flex gap-3">
-          <input
-            type="email"
-            value={testEmail}
-            onChange={(e) => setTestEmail(e.target.value)}
-            placeholder="test@example.com"
-            className={`${inputClass} flex-1`}
-          />
+      {/* Tab bar */}
+      <div className="flex border-b border-slate-200 px-6 bg-white">
+        {tabs.map((tab) => (
           <button
-            type="button"
-            onClick={handleTestEmail}
-            disabled={testStatus.type === "loading"}
-            className="px-5 py-2 bg-slate-600 text-white font-medium rounded-lg hover:bg-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-400 disabled:opacity-50 disabled:cursor-not-allowed transition whitespace-nowrap"
-          >
-            {testStatus.type === "loading" ? "Sending..." : "Send Test"}
-          </button>
-        </div>
-
-        {testStatus.type !== "idle" && (
-          <div
-            className={`mt-3 rounded-lg p-3 text-sm font-medium ${
-              testStatus.type === "success"
-                ? "bg-green-900/50 text-green-300 border border-green-700"
-                : testStatus.type === "error"
-                ? "bg-red-900/50 text-red-300 border border-red-700"
-                : "bg-blue-900/50 text-blue-300 border border-blue-700"
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`py-3.5 px-1 mr-6 text-sm font-medium border-b-2 transition ${
+              activeTab === tab.id
+                ? "border-sky-500 text-sky-600"
+                : "border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300"
             }`}
           >
-            {testStatus.message}
-          </div>
-        )}
+            {tab.label}
+          </button>
+        ))}
       </div>
+
+      {/* Tab content */}
+      {activeTab === "guide" ? (
+        <QuickGuide />
+      ) : (
+        <>
+          <form onSubmit={handleSubmit} className="p-6 space-y-5">
+            {/* Host & Port */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="col-span-2">
+                <label className={labelClass}>SMTP Host</label>
+                <input
+                  type="text"
+                  name="smtpHost"
+                  value={formData.smtpHost}
+                  onChange={handleChange}
+                  placeholder="smtp.gmail.com"
+                  className={inputClass}
+                  required
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Port</label>
+                <input
+                  type="number"
+                  name="smtpPort"
+                  value={formData.smtpPort}
+                  onChange={handleChange}
+                  placeholder="587"
+                  className={inputClass}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* SMTP User */}
+            <div>
+              <label className={labelClass}>SMTP Username</label>
+              <input
+                type="email"
+                name="smtpUser"
+                value={formData.smtpUser}
+                onChange={handleChange}
+                placeholder="you@yourdomain.com"
+                className={inputClass}
+                required
+              />
+            </div>
+
+            {/* SMTP Password */}
+            <div>
+              <label className={labelClass}>SMTP Password</label>
+              <input
+                type="password"
+                name="smtpPassword"
+                value={formData.smtpPassword}
+                onChange={handleChange}
+                placeholder="Your app password or SMTP key"
+                className={inputClass}
+                required
+              />
+            </div>
+
+            {/* From Email & Name */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>From Email</label>
+                <input
+                  type="email"
+                  name="fromEmail"
+                  value={formData.fromEmail}
+                  onChange={handleChange}
+                  placeholder="noreply@yourdomain.com"
+                  className={inputClass}
+                  required
+                />
+              </div>
+              <div>
+                <label className={labelClass}>From Name</label>
+                <input
+                  type="text"
+                  name="fromName"
+                  value={formData.fromName}
+                  onChange={handleChange}
+                  placeholder="My App"
+                  className={inputClass}
+                />
+              </div>
+            </div>
+
+            {/* Port hint */}
+            <div className="bg-sky-50 border border-sky-100 rounded-lg p-3 text-xs text-slate-500 flex gap-2">
+              <span className="text-sky-400 mt-0.5">ⓘ</span>
+              <span>
+                Use port <code className="font-mono text-sky-600 font-semibold">587</code> with TLS
+                (recommended) or <code className="font-mono text-sky-600 font-semibold">465</code>{" "}
+                with SSL. Check the{" "}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("guide")}
+                  className="text-sky-500 underline hover:text-sky-700 font-medium"
+                >
+                  Quick Guide
+                </button>{" "}
+                for provider-specific settings.
+              </span>
+            </div>
+
+            {/* Status */}
+            {status.type !== "idle" && (
+              <div className={`rounded-lg p-3 text-sm font-medium ${statusColors[status.type]}`}>
+                {status.message}
+              </div>
+            )}
+
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={status.type === "loading"}
+              className="w-full py-3 px-6 bg-gradient-to-r from-sky-500 to-indigo-500 text-white font-semibold rounded-lg hover:from-sky-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm"
+            >
+              {status.type === "loading" ? "Saving…" : "Save Email Settings"}
+            </button>
+          </form>
+
+          {/* Test Email */}
+          <div className="border-t border-slate-100 px-6 py-5 bg-slate-50">
+            <h3 className="text-sm font-semibold text-slate-600 mb-3">
+              Send a Test Email
+            </h3>
+            <div className="flex gap-3">
+              <input
+                type="email"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                placeholder="test@example.com"
+                className={`${inputClass} flex-1`}
+              />
+              <button
+                type="button"
+                onClick={handleTestEmail}
+                disabled={testStatus.type === "loading"}
+                className="px-5 py-2.5 bg-white border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-100 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm whitespace-nowrap"
+              >
+                {testStatus.type === "loading" ? "Sending…" : "Send Test"}
+              </button>
+            </div>
+
+            {testStatus.type !== "idle" && (
+              <div
+                className={`mt-3 rounded-lg p-3 text-sm font-medium ${statusColors[testStatus.type]}`}
+              >
+                {testStatus.message}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
